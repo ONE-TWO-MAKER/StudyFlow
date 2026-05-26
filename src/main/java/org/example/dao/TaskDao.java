@@ -1,6 +1,11 @@
 package org.example.dao;
 
-import model.Task;
+import org.example.model.Task;
+
+import java.util.List;
+
+// ... existing code ...
+
 
 import java.util.List;
 

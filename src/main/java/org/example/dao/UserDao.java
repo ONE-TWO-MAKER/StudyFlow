@@ -1,6 +1,6 @@
 package org.example.dao;
 
-import model.User;
+import org.example.model.User;
 
 import java.util.List;
 
