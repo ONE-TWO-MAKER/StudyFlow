@@ -1,6 +1,6 @@
 package org.example.service;
 
-import model.CheckInRecord;
+import org.example.model.CheckInRecord;
 
 import java.util.List;
 

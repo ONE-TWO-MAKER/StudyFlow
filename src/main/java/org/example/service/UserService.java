@@ -1,5 +1,5 @@
 package org.example.service;
-import model.User;
+import org.example.model.User;
 /**
  * 用户服务接口，定义用户相关的业务操作规范。
  */
