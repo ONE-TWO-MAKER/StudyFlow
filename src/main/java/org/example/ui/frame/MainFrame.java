@@ -79,6 +79,34 @@ public class MainFrame extends JFrame {
 
         sidebar.add(Box.createVerticalGlue());
 
+        // 退出登录按钮
+        JButton logoutBtn = new JButton("退出登录");
+        logoutBtn.setFont(new Font("Microsoft YaHei", Font.PLAIN, 15));
+        logoutBtn.setForeground(BTN_TEXT);
+        logoutBtn.setBackground(SIDEBAR_BG);
+        logoutBtn.setBorderPainted(false);
+        logoutBtn.setFocusPainted(false);
+        logoutBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        logoutBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
+        logoutBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        logoutBtn.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                logoutBtn.setForeground(new Color(231, 76, 60));
+            }
+            public void mouseExited(java.awt.event.MouseEvent evt) {
+                logoutBtn.setForeground(BTN_TEXT);
+            }
+        });
+
+        logoutBtn.addActionListener(e -> {
+            dispose();
+            SwingUtilities.invokeLater(LoginFrame::new);
+        });
+
+        sidebar.add(logoutBtn);
+        sidebar.add(Box.createVerticalStrut(15));
+
         add(sidebar, BorderLayout.WEST);
     }
 

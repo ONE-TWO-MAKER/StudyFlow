@@ -1,6 +1,6 @@
 package org.example;
 
-import org.example.ui.frame.MainFrame;
+import org.example.ui.frame.LoginFrame;
 
 import javax.swing.*;
 
@@ -9,6 +9,6 @@ import javax.swing.*;
  */
 public class Main {
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(MainFrame::new);
+        SwingUtilities.invokeLater(LoginFrame::new);
     }
 }
