@@ -216,12 +216,18 @@ public class TaskPanel extends JPanel {
         editItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 13));
         editItem.addActionListener(e -> editSelectedTask());
 
+        JMenuItem completeItem = new JMenuItem("标记完成");
+        completeItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 13));
+        completeItem.setForeground(new Color(46, 204, 113));
+        completeItem.addActionListener(e -> toggleCompleteSelectedTask());
+
         JMenuItem deleteItem = new JMenuItem("删除任务");
         deleteItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 13));
         deleteItem.setForeground(new Color(231, 76, 60));
         deleteItem.addActionListener(e -> deleteSelectedTask());
 
         menu.add(editItem);
+        menu.add(completeItem);
         menu.addSeparator();
         menu.add(deleteItem);
 
@@ -255,6 +261,34 @@ public class TaskPanel extends JPanel {
                 SwingUtil.showErrorDialog(this, e.getMessage());
             }
         }
+    }
+
+    /**
+     * 切换选中任务的完成状态：已完成的取消完成，未完成的标记完成。
+     * 通过 Service 更新数据库后刷新表格。
+     */
+    private void toggleCompleteSelectedTask() {
+        int row = taskTable.getSelectedRow();
+        if (row < 0) return;
+
+        int taskId = (int) tableModel.getValueAt(row, 0);
+        String name = (String) tableModel.getValueAt(row, 1);
+
+        taskService.getAllTasks(currentUser.getId()).stream()
+                .filter(t -> t.getId() == taskId)
+                .findFirst()
+                .ifPresent(task -> {
+                    boolean newCompleted = !task.isCompleted();
+                    Task updated = new Task(taskId, currentUser.getId(),
+                            task.getTitle(), task.getSubject(),
+                            task.getDuration(), newCompleted);
+                    try {
+                        taskService.updateTask(updated);
+                        loadTaskData();
+                    } catch (RuntimeException e) {
+                        SwingUtil.showErrorDialog(this, e.getMessage());
+                    }
+                });
     }
 
     /**
