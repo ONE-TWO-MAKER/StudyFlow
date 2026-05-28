@@ -1,14 +1,32 @@
 package org.example.ui.panel;
 
+import org.example.model.CheckInRecord;
+import org.example.model.Task;
+import org.example.model.User;
+import org.example.service.CheckInService;
+import org.example.service.TaskService;
+import org.example.ui.dialog.CheckInDialog;
+import org.example.util.DateUtil;
+import org.example.util.SwingUtil;
+
 import javax.swing.*;
 import java.awt.*;
+import java.util.List;
 
 /**
  * 打卡面板，提供每日学习打卡操作界面。
  */
 public class CheckInPanel extends JPanel {
 
-    public CheckInPanel() {
+    private final User currentUser;
+    private final TaskService taskService;
+    private final CheckInService checkInService;
+
+    public CheckInPanel(User currentUser, TaskService taskService, CheckInService checkInService) {
+        this.currentUser = currentUser;
+        this.taskService = taskService;
+        this.checkInService = checkInService;
+
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
 
@@ -32,7 +50,37 @@ public class CheckInPanel extends JPanel {
         checkInBtn.setPreferredSize(new Dimension(200, 200));
         checkInBtn.setBorder(BorderFactory.createEmptyBorder(10, 30, 10, 30));
 
+        checkInBtn.addActionListener(e -> handleCheckIn());
+
         centerPanel.add(checkInBtn);
         add(centerPanel, BorderLayout.CENTER);
+    }
+
+    private void handleCheckIn() {
+        List<Task> tasks = taskService.getAllTasks(currentUser.getId());
+
+        Frame owner = (Frame) SwingUtilities.getWindowAncestor(this);
+        CheckInDialog dialog = new CheckInDialog(owner, tasks);
+        dialog.setVisible(true);
+
+        if (dialog.isConfirmed()) {
+            try {
+                CheckInRecord record = new CheckInRecord(0, currentUser.getId(),
+                        DateUtil.getTodayDate(),
+                        dialog.getSelectedTaskName(),
+                        dialog.getStudyTime());
+                checkInService.addRecord(record);
+                SwingUtil.showInfoDialog(this, "打卡成功！");
+            } catch (RuntimeException e) {
+                SwingUtil.showErrorDialog(this, e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 切换到此面板时刷新数据（占位，目前无显示数据需要刷新）。
+     */
+    public void loadData() {
+        // 打卡面板为纯交互面板，无需刷新静态数据
     }
 }
