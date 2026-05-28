@@ -1,5 +1,12 @@
 package org.example.ui.frame;
 
+import org.example.dao.impl.CheckInDaoImpl;
+import org.example.dao.impl.TaskDaoImpl;
+import org.example.model.User;
+import org.example.service.CheckInService;
+import org.example.service.TaskService;
+import org.example.service.impl.CheckInServiceImpl;
+import org.example.service.impl.TaskServiceImpl;
 import org.example.ui.panel.CheckInPanel;
 import org.example.ui.panel.HomePanel;
 import org.example.ui.panel.StatisticsPanel;
@@ -12,6 +19,10 @@ import java.awt.*;
  * 主窗口，左侧菜单栏 + 右侧 CardLayout 内容区。
  */
 public class MainFrame extends JFrame {
+
+    private final User currentUser;
+    private final TaskService taskService;
+    private final CheckInService checkInService;
 
     private CardLayout cardLayout;
     private JPanel contentPanel;
@@ -32,7 +43,11 @@ public class MainFrame extends JFrame {
     private static final Color BTN_ACTIVE = new Color(26, 188, 156);
     private static final Color BTN_TEXT = new Color(236, 240, 241);
 
-    public MainFrame() {
+    public MainFrame(User currentUser) {
+        this.currentUser = currentUser;
+        this.taskService = new TaskServiceImpl(new TaskDaoImpl());
+        this.checkInService = new CheckInServiceImpl(new CheckInDaoImpl());
+
         setTitle("StudyFlow - 学习打卡系统");
         setSize(960, 660);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -47,10 +62,10 @@ public class MainFrame extends JFrame {
     }
 
     private void initPanels() {
-        homePanel = new HomePanel();
-        taskPanel = new TaskPanel();
-        checkInPanel = new CheckInPanel();
-        statisticsPanel = new StatisticsPanel();
+        homePanel = new HomePanel(currentUser, taskService, checkInService);
+        taskPanel = new TaskPanel(currentUser, taskService);
+        checkInPanel = new CheckInPanel(currentUser, taskService, checkInService);
+        statisticsPanel = new StatisticsPanel(currentUser, taskService, checkInService);
     }
 
     private void createSidebar() {
@@ -131,6 +146,23 @@ public class MainFrame extends JFrame {
 
     private void switchPage(String pageName, JButton activeBtn) {
         cardLayout.show(contentPanel, pageName);
+
+        // 每次切换页面时刷新数据，确保显示最新状态
+        switch (pageName) {
+            case "home":
+                homePanel.loadData();
+                break;
+            case "task":
+                taskPanel.loadTaskData();
+                break;
+            case "checkin":
+                checkInPanel.loadData();
+                break;
+            case "statistics":
+                statisticsPanel.loadData();
+                break;
+        }
+
         resetMenuButtons();
         activeBtn.setBackground(BTN_ACTIVE);
     }

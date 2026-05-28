@@ -1,6 +1,10 @@
 package org.example.ui.panel;
 
+import org.example.model.Task;
+import org.example.model.User;
+import org.example.service.TaskService;
 import org.example.ui.dialog.AddTaskDialog;
+import org.example.util.SwingUtil;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -12,8 +16,12 @@ import java.awt.event.MouseEvent;
 
 /**
  * 任务面板，使用 JTable 展示任务列表，支持右键菜单编辑和删除任务。
+ * 数据通过 TaskService 与数据库同步。
  */
 public class TaskPanel extends JPanel {
+
+    private final User currentUser;
+    private final TaskService taskService;
 
     private JTable taskTable;
     private DefaultTableModel tableModel;
@@ -23,15 +31,31 @@ public class TaskPanel extends JPanel {
     private static final Color SELECTION_BG = new Color(230, 246, 243);
     private static final Color SELECTION_FG = new Color(44, 62, 80);
 
-    public TaskPanel() {
+    public TaskPanel(User currentUser, TaskService taskService) {
+        this.currentUser = currentUser;
+        this.taskService = taskService;
+
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
 
-        // 顶部标题栏
         add(createTopPanel(), BorderLayout.NORTH);
-
-        // 表格区域
         add(createTablePanel(), BorderLayout.CENTER);
+
+        loadTaskData();
+    }
+
+    /**
+     * 从数据库加载当前用户的任务数据到表格。
+     */
+    public void loadTaskData() {
+        tableModel.setRowCount(0);
+        for (Task task : taskService.getAllTasks(currentUser.getId())) {
+            tableModel.addRow(new Object[]{
+                    task.getId(),
+                    task.getTitle(),
+                    task.getDuration() + " 分钟"
+            });
+        }
     }
 
     /**
@@ -56,18 +80,30 @@ public class TaskPanel extends JPanel {
         addBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         topPanel.add(addBtn, BorderLayout.EAST);
 
-        // 点击添加按钮，弹出对话框添加新任务
-        addBtn.addActionListener(e -> {
-            Frame owner = (Frame) SwingUtilities.getWindowAncestor(this);
-            AddTaskDialog dialog = new AddTaskDialog(owner);
-            dialog.setVisible(true);
-
-            if (dialog.isConfirmed()) {
-                tableModel.addRow(new Object[]{dialog.getTaskName(), dialog.getDuration() + " 分钟"});
-            }
-        });
+        addBtn.addActionListener(e -> handleAddTask());
 
         return topPanel;
+    }
+
+    /**
+     * 处理添加任务：弹出对话框，通过 Service 写入数据库并刷新表格。
+     */
+    private void handleAddTask() {
+        Frame owner = (Frame) SwingUtilities.getWindowAncestor(this);
+        AddTaskDialog dialog = new AddTaskDialog(owner);
+        dialog.setVisible(true);
+
+        if (dialog.isConfirmed()) {
+            try {
+                Task task = new Task(0, currentUser.getId(),
+                        dialog.getTaskName(), "默认科目",
+                        dialog.getDuration(), false);
+                taskService.addTask(task);
+                loadTaskData();
+            } catch (RuntimeException e) {
+                SwingUtil.showErrorDialog(this, e.getMessage());
+            }
+        }
     }
 
     /**
@@ -78,10 +114,9 @@ public class TaskPanel extends JPanel {
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createEmptyBorder(0, 30, 20, 30));
 
-        // 表格列名
-        String[] columns = {"任务名称", "学习时长"};
+        // 表格列名 — 第 0 列 ID 将被隐藏
+        String[] columns = {"ID", "任务名称", "学习时长"};
         tableModel = new DefaultTableModel(columns, 0) {
-            // 禁止直接编辑单元格
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
@@ -94,7 +129,6 @@ public class TaskPanel extends JPanel {
         // 右键菜单
         JPopupMenu popupMenu = createPopupMenu();
 
-        // 鼠标事件：右键弹出菜单
         taskTable.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
@@ -113,10 +147,8 @@ public class TaskPanel extends JPanel {
             private void showPopup(MouseEvent e) {
                 int row = taskTable.rowAtPoint(e.getPoint());
                 if (row >= 0) {
-                    // 右键时自动选中该行
                     taskTable.setRowSelectionInterval(row, row);
                 }
-                // 仅当有选中行时才显示菜单
                 if (taskTable.getSelectedRow() >= 0) {
                     popupMenu.show(taskTable, e.getX(), e.getY());
                 }
@@ -129,7 +161,6 @@ public class TaskPanel extends JPanel {
 
         panel.add(scrollPane, BorderLayout.CENTER);
 
-        // 空数据提示
         JLabel hintLabel = new JLabel("暂无任务，点击右上角按钮添加", JLabel.CENTER);
         hintLabel.setFont(new Font("Microsoft YaHei", Font.PLAIN, 13));
         hintLabel.setForeground(new Color(189, 195, 199));
@@ -140,40 +171,38 @@ public class TaskPanel extends JPanel {
     }
 
     /**
-     * 美化 JTable：行高、字体、表头样式、选中颜色
+     * 美化 JTable：行高、字体、表头样式、选中颜色，并隐藏第 0 列（ID）。
      */
     private void styleTable() {
-        // 行高
         taskTable.setRowHeight(40);
 
-        // 表格字体
         taskTable.setFont(new Font("Microsoft YaHei", Font.PLAIN, 14));
         taskTable.setForeground(DARK_BG);
         taskTable.setGridColor(new Color(230, 232, 235));
         taskTable.setShowVerticalLines(false);
         taskTable.setIntercellSpacing(new Dimension(10, 0));
 
-        // 选中颜色
         taskTable.setSelectionBackground(SELECTION_BG);
         taskTable.setSelectionForeground(SELECTION_FG);
 
-        // 表头样式
         JTableHeader header = taskTable.getTableHeader();
         header.setFont(new Font("Microsoft YaHei", Font.BOLD, 14));
         header.setBackground(new Color(245, 247, 250));
         header.setForeground(DARK_BG);
         header.setPreferredSize(new Dimension(header.getPreferredSize().width, 38));
-
-        // 表头不可拖拽
         header.setReorderingAllowed(false);
 
-        // 表格背景
         taskTable.setBackground(Color.WHITE);
 
-        // 列内容居中
+        // 隐藏 ID 列
+        taskTable.getColumnModel().getColumn(0).setMinWidth(0);
+        taskTable.getColumnModel().getColumn(0).setMaxWidth(0);
+        taskTable.getColumnModel().getColumn(0).setPreferredWidth(0);
+
+        // 内容列居中
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-        taskTable.getColumnModel().getColumn(1).setCellRenderer(centerRenderer);
+        taskTable.getColumnModel().getColumn(2).setCellRenderer(centerRenderer);
     }
 
     /**
@@ -183,18 +212,22 @@ public class TaskPanel extends JPanel {
         JPopupMenu menu = new JPopupMenu();
         menu.setFont(new Font("Microsoft YaHei", Font.PLAIN, 13));
 
-        // 编辑任务菜单项
         JMenuItem editItem = new JMenuItem("编辑任务");
         editItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 13));
         editItem.addActionListener(e -> editSelectedTask());
 
-        // 删除任务菜单项
+        JMenuItem completeItem = new JMenuItem("标记完成");
+        completeItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 13));
+        completeItem.setForeground(new Color(46, 204, 113));
+        completeItem.addActionListener(e -> toggleCompleteSelectedTask());
+
         JMenuItem deleteItem = new JMenuItem("删除任务");
         deleteItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 13));
         deleteItem.setForeground(new Color(231, 76, 60));
         deleteItem.addActionListener(e -> deleteSelectedTask());
 
         menu.add(editItem);
+        menu.add(completeItem);
         menu.addSeparator();
         menu.add(deleteItem);
 
@@ -202,40 +235,72 @@ public class TaskPanel extends JPanel {
     }
 
     /**
-     * 编辑选中行：打开对话框并预填充数据，确认后更新表格
+     * 编辑选中行：获取隐藏的任务 ID，弹出对话框修改，通过 Service 更新数据库。
      */
     private void editSelectedTask() {
         int row = taskTable.getSelectedRow();
         if (row < 0) return;
 
-        // 获取当前行数据
-        String name = (String) tableModel.getValueAt(row, 0);
-        String durationStr = (String) tableModel.getValueAt(row, 1);
-        // 从"XX 分钟"中提取数字
+        int taskId = (int) tableModel.getValueAt(row, 0);
+        String name = (String) tableModel.getValueAt(row, 1);
+        String durationStr = (String) tableModel.getValueAt(row, 2);
         int duration = Integer.parseInt(durationStr.replace(" 分钟", ""));
 
-        // 打开编辑对话框，预填充数据
         Frame owner = (Frame) SwingUtilities.getWindowAncestor(this);
         AddTaskDialog dialog = new AddTaskDialog(owner, name, duration);
         dialog.setVisible(true);
 
         if (dialog.isConfirmed()) {
-            // 更新表格中对应行
-            tableModel.setValueAt(dialog.getTaskName(), row, 0);
-            tableModel.setValueAt(dialog.getDuration() + " 分钟", row, 1);
+            try {
+                Task task = new Task(taskId, currentUser.getId(),
+                        dialog.getTaskName(), "默认科目",
+                        dialog.getDuration(), false);
+                taskService.updateTask(task);
+                loadTaskData();
+            } catch (RuntimeException e) {
+                SwingUtil.showErrorDialog(this, e.getMessage());
+            }
         }
     }
 
     /**
-     * 删除选中行：弹出确认提示，确认后从表格中移除
+     * 切换选中任务的完成状态：已完成的取消完成，未完成的标记完成。
+     * 通过 Service 更新数据库后刷新表格。
+     */
+    private void toggleCompleteSelectedTask() {
+        int row = taskTable.getSelectedRow();
+        if (row < 0) return;
+
+        int taskId = (int) tableModel.getValueAt(row, 0);
+        String name = (String) tableModel.getValueAt(row, 1);
+
+        taskService.getAllTasks(currentUser.getId()).stream()
+                .filter(t -> t.getId() == taskId)
+                .findFirst()
+                .ifPresent(task -> {
+                    boolean newCompleted = !task.isCompleted();
+                    Task updated = new Task(taskId, currentUser.getId(),
+                            task.getTitle(), task.getSubject(),
+                            task.getDuration(), newCompleted);
+                    try {
+                        taskService.updateTask(updated);
+                        loadTaskData();
+                    } catch (RuntimeException e) {
+                        SwingUtil.showErrorDialog(this, e.getMessage());
+                    }
+                });
+    }
+
+    /**
+     * 删除选中行：获取隐藏的任务 ID，确认后通过 Service 从数据库移除。
      */
     private void deleteSelectedTask() {
         int row = taskTable.getSelectedRow();
         if (row < 0) return;
 
-        String name = (String) tableModel.getValueAt(row, 0);
+        int taskId = (int) tableModel.getValueAt(row, 0);
+        String name = (String) tableModel.getValueAt(row, 1);
 
-        // 删除前弹出确认对话框
         int result = JOptionPane.showConfirmDialog(
                 this,
                 "确定要删除任务 \"" + name + "\" 吗？\n删除后不可恢复。",
@@ -245,7 +310,12 @@ public class TaskPanel extends JPanel {
         );
 
         if (result == JOptionPane.YES_OPTION) {
-            tableModel.removeRow(row);
+            try {
+                taskService.deleteTask(taskId);
+                loadTaskData();
+            } catch (RuntimeException e) {
+                SwingUtil.showErrorDialog(this, e.getMessage());
+            }
         }
     }
 }

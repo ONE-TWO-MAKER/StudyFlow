@@ -1,5 +1,10 @@
 package org.example.ui.panel;
 
+import org.example.model.Task;
+import org.example.model.User;
+import org.example.service.CheckInService;
+import org.example.service.TaskService;
+
 import javax.swing.*;
 import java.awt.*;
 
@@ -8,7 +13,20 @@ import java.awt.*;
  */
 public class HomePanel extends JPanel {
 
-    public HomePanel() {
+    private final User currentUser;
+    private final TaskService taskService;
+    private final CheckInService checkInService;
+
+    private JLabel taskCountLabel;
+    private JLabel completedLabel;
+    private JLabel streakLabel;
+    private JLabel totalCheckInLabel;
+
+    public HomePanel(User currentUser, TaskService taskService, CheckInService checkInService) {
+        this.currentUser = currentUser;
+        this.taskService = taskService;
+        this.checkInService = checkInService;
+
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
 
@@ -46,9 +64,42 @@ public class HomePanel extends JPanel {
         valueLabel.setFont(new Font("Microsoft YaHei", Font.BOLD, 28));
         valueLabel.setForeground(new Color(44, 62, 80));
 
+        // 保存引用以便 loadData 更新
+        switch (title) {
+            case "今日任务":
+                taskCountLabel = valueLabel;
+                break;
+            case "已完成":
+                completedLabel = valueLabel;
+                break;
+            case "连续打卡":
+                streakLabel = valueLabel;
+                break;
+            case "总打卡数":
+                totalCheckInLabel = valueLabel;
+                break;
+        }
+
         card.add(titleLabel, BorderLayout.NORTH);
         card.add(valueLabel, BorderLayout.CENTER);
 
         return card;
+    }
+
+    /**
+     * 从数据库加载最新数据并更新首页统计卡片。
+     */
+    public void loadData() {
+        int taskCount = taskService.getAllTasks(currentUser.getId()).size();
+        int totalCheckIns = checkInService.getAllRecords(currentUser.getId()).size();
+        int totalStudyTime = checkInService.getTotalStudyTime(currentUser.getId());
+
+        taskCountLabel.setText(taskCount + " 项");
+        long completedCount = taskService.getAllTasks(currentUser.getId()).stream()
+                .filter(Task::isCompleted)
+                .count();
+        completedLabel.setText(completedCount + " 项");
+        streakLabel.setText("0 天");
+        totalCheckInLabel.setText(totalCheckIns + " 次");
     }
 }
