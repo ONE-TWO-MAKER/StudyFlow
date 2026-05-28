@@ -53,7 +53,8 @@ public class TaskPanel extends JPanel {
             tableModel.addRow(new Object[]{
                     task.getId(),
                     task.getTitle(),
-                    task.getDuration() + " 分钟"
+                    task.getDuration() + " 分钟",
+                    task.isCompleted()   // 隐藏的完成状态列
             });
         }
     }
@@ -114,8 +115,8 @@ public class TaskPanel extends JPanel {
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createEmptyBorder(0, 30, 20, 30));
 
-        // 表格列名 — 第 0 列 ID 将被隐藏
-        String[] columns = {"ID", "任务名称", "学习时长"};
+        // 表格列名 — 第 0 列 ID 和第 3 列 completed 将被隐藏
+        String[] columns = {"ID", "任务名称", "学习时长", "completed"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -199,14 +200,69 @@ public class TaskPanel extends JPanel {
         taskTable.getColumnModel().getColumn(0).setMaxWidth(0);
         taskTable.getColumnModel().getColumn(0).setPreferredWidth(0);
 
-        // 内容列居中
+        // 隐藏 completed 列
+        taskTable.getColumnModel().getColumn(3).setMinWidth(0);
+        taskTable.getColumnModel().getColumn(3).setMaxWidth(0);
+        taskTable.getColumnModel().getColumn(3).setPreferredWidth(0);
+
+        // 任务名称列 — 自定义渲染器，已完成任务显示删除线和 ✓
+        taskTable.getColumnModel().getColumn(1).setCellRenderer(new TaskNameRenderer());
+
+        // 学习时长列居中
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(JLabel.CENTER);
         taskTable.getColumnModel().getColumn(2).setCellRenderer(centerRenderer);
     }
 
     /**
-     * 创建右键弹出菜单：编辑任务、删除任务
+     * 任务名称列的自定义渲染器。
+     * 已完成任务以灰色删除线 + 绿色 ✓ 前缀显示。
+     */
+    private class TaskNameRenderer extends DefaultTableCellRenderer {
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value,
+                boolean isSelected, boolean hasFocus, int row, int column) {
+            // 获取当前行的完成状态（第 3 列）
+            boolean completed = false;
+            if (tableModel.getRowCount() > row) {
+                Object completedObj = tableModel.getValueAt(row, 3);
+                if (completedObj instanceof Boolean) {
+                    completed = (Boolean) completedObj;
+                }
+            }
+
+            String name = (value != null) ? value.toString() : "";
+
+            if (completed && !isSelected) {
+                // 已完成：灰色 + 删除线 + 绿色 ✓
+                setText("<html><font color='#27ae60'>✓ </font>"
+                        + "<font color='#bdc3c7'><strike>" + name + "</strike></font></html>");
+            } else if (completed && isSelected) {
+                // 已完成且被选中：保持选中色，但仍显示 ✓
+                setText("<html><font color='#27ae60'>✓ </font>" + name + "</html>");
+            } else {
+                // 未完成：正常显示
+                setText(name);
+            }
+
+            setFont(new Font("Microsoft YaHei", Font.PLAIN, 14));
+            setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
+
+            // 选中时使用表格的选中色
+            if (isSelected) {
+                setBackground(table.getSelectionBackground());
+                setForeground(table.getSelectionForeground());
+            } else {
+                setBackground(Color.WHITE);
+                setForeground(DARK_BG);
+            }
+
+            return this;
+        }
+    }
+
+    /**
+     * 创建右键弹出菜单：编辑任务、标记完成/取消完成、删除任务
      */
     private JPopupMenu createPopupMenu() {
         JPopupMenu menu = new JPopupMenu();
@@ -218,7 +274,6 @@ public class TaskPanel extends JPanel {
 
         JMenuItem completeItem = new JMenuItem("标记完成");
         completeItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 13));
-        completeItem.setForeground(new Color(46, 204, 113));
         completeItem.addActionListener(e -> toggleCompleteSelectedTask());
 
         JMenuItem deleteItem = new JMenuItem("删除任务");
@@ -230,6 +285,27 @@ public class TaskPanel extends JPanel {
         menu.add(completeItem);
         menu.addSeparator();
         menu.add(deleteItem);
+
+        // 菜单弹出前根据当前行状态动态调整文字
+        menu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
+                int row = taskTable.getSelectedRow();
+                if (row >= 0 && row < tableModel.getRowCount()) {
+                    Object completedObj = tableModel.getValueAt(row, 3);
+                    boolean completed = (completedObj instanceof Boolean) && (Boolean) completedObj;
+                    if (completed) {
+                        completeItem.setText("取消完成");
+                        completeItem.setForeground(new Color(243, 156, 18));
+                    } else {
+                        completeItem.setText("标记完成");
+                        completeItem.setForeground(new Color(46, 204, 113));
+                    }
+                }
+            }
+            public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {}
+            public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {}
+        });
 
         return menu;
     }
@@ -245,6 +321,8 @@ public class TaskPanel extends JPanel {
         String name = (String) tableModel.getValueAt(row, 1);
         String durationStr = (String) tableModel.getValueAt(row, 2);
         int duration = Integer.parseInt(durationStr.replace(" 分钟", ""));
+        boolean completed = tableModel.getValueAt(row, 3) instanceof Boolean
+                && (Boolean) tableModel.getValueAt(row, 3);
 
         Frame owner = (Frame) SwingUtilities.getWindowAncestor(this);
         AddTaskDialog dialog = new AddTaskDialog(owner, name, duration);
@@ -254,7 +332,7 @@ public class TaskPanel extends JPanel {
             try {
                 Task task = new Task(taskId, currentUser.getId(),
                         dialog.getTaskName(), "默认科目",
-                        dialog.getDuration(), false);
+                        dialog.getDuration(), completed);
                 taskService.updateTask(task);
                 loadTaskData();
             } catch (RuntimeException e) {
