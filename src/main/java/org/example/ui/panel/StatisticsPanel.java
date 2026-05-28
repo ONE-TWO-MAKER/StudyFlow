@@ -1,14 +1,35 @@
 package org.example.ui.panel;
 
+import org.example.model.CheckInRecord;
+import org.example.model.User;
+import org.example.service.CheckInService;
+import org.example.service.TaskService;
+import org.example.util.DateUtil;
+
 import javax.swing.*;
 import java.awt.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * 统计面板，展示学习打卡数据的统计图表和分析信息。
  */
 public class StatisticsPanel extends JPanel {
 
-    public StatisticsPanel() {
+    private final User currentUser;
+    private final TaskService taskService;
+    private final CheckInService checkInService;
+
+    private JLabel weeklyLabel;
+    private JLabel monthlyLabel;
+    private JLabel taskCountLabel;
+
+    public StatisticsPanel(User currentUser, TaskService taskService, CheckInService checkInService) {
+        this.currentUser = currentUser;
+        this.taskService = taskService;
+        this.checkInService = checkInService;
+
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
 
@@ -58,9 +79,47 @@ public class StatisticsPanel extends JPanel {
         valueLabel.setFont(new Font("Microsoft YaHei", Font.BOLD, 24));
         valueLabel.setForeground(new Color(44, 62, 80));
 
+        switch (title) {
+            case "本周打卡":
+                weeklyLabel = valueLabel;
+                break;
+            case "本月打卡":
+                monthlyLabel = valueLabel;
+                break;
+            case "学习任务":
+                taskCountLabel = valueLabel;
+                break;
+        }
+
         card.add(titleLabel, BorderLayout.NORTH);
         card.add(valueLabel, BorderLayout.CENTER);
 
         return card;
+    }
+
+    /**
+     * 从数据库加载最新数据并更新统计卡片。
+     * 使用 DateUtil 过滤本周/本月的打卡记录，按日期去重统计独立天数。
+     */
+    public void loadData() {
+        List<CheckInRecord> records = checkInService.getAllRecords(currentUser.getId());
+        int taskCount = taskService.getAllTasks(currentUser.getId()).size();
+
+        Set<String> weeklyDates = new HashSet<>();
+        Set<String> monthlyDates = new HashSet<>();
+
+        for (CheckInRecord r : records) {
+            String date = r.getDate();
+            if (DateUtil.isCurrentWeek(date)) {
+                weeklyDates.add(date);
+            }
+            if (DateUtil.isCurrentMonth(date)) {
+                monthlyDates.add(date);
+            }
+        }
+
+        weeklyLabel.setText(weeklyDates.size() + " 天");
+        monthlyLabel.setText(monthlyDates.size() + " 天");
+        taskCountLabel.setText(taskCount + " 个");
     }
 }

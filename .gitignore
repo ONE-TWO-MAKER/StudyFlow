@@ -37,3 +37,6 @@ build/
 
 ### Claude Code ###
 CLAUDE.md
+
+### Runtime ###
+studyflow.db

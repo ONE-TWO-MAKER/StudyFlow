@@ -1,14 +1,20 @@
 package org.example.ui.frame;
 
+import org.example.dao.impl.UserDaoImpl;
+import org.example.model.User;
+import org.example.service.impl.UserServiceImpl;
+import org.example.util.SwingUtil;
+
 import javax.swing.*;
 import java.awt.*;
 
 /**
  * 登录窗口，提供用户登录和注册的图形界面。
- * 当前使用假账号验证：admin / 123456
+ * 深色极简风格，使用数据库验证。
  */
 public class LoginFrame extends JFrame {
 
+    private final UserServiceImpl userService;
     private JTextField usernameField;
     private JPasswordField passwordField;
 
@@ -18,6 +24,8 @@ public class LoginFrame extends JFrame {
     private static final Color TEXT_LIGHT = new Color(236, 240, 241);
 
     public LoginFrame() {
+        userService = new UserServiceImpl(new UserDaoImpl());
+
         setTitle("StudyFlow - 登录");
         setSize(500, 420);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -120,7 +128,6 @@ public class LoginFrame extends JFrame {
         field.setForeground(TEXT_LIGHT);
         field.setBackground(FIELD_BG);
         field.setCaretColor(TEXT_LIGHT);
-        // 加大上下 padding 让输入框更高
         field.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(70, 90, 110), 1),
                 BorderFactory.createEmptyBorder(10, 14, 10, 14)));
@@ -151,7 +158,6 @@ public class LoginFrame extends JFrame {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                // 圆角矩形背景
                 g2.setColor(getBackground());
                 g2.fillRoundRect(1, 1, getWidth() - 2, getHeight() - 2, 12, 12);
                 g2.dispose();
@@ -169,7 +175,6 @@ public class LoginFrame extends JFrame {
 
         btn.addActionListener(e -> handleLogin());
 
-        // 鼠标悬停时颜色加深
         btn.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
                 btn.setBackground(new Color(22, 170, 140));
@@ -183,7 +188,7 @@ public class LoginFrame extends JFrame {
     }
 
     /**
-     * 创建注册文字按钮："没有账号？立即注册"
+     * 创建注册文字按钮："没有账号？立即注册"，调用真实注册服务
      */
     private JButton createRegisterLink() {
         JButton btn = new JButton("没有账号？立即注册");
@@ -195,14 +200,8 @@ public class LoginFrame extends JFrame {
         btn.setFocusPainted(false);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        btn.addActionListener(e -> {
-            JOptionPane.showMessageDialog(this,
-                    "注册功能暂未开放，请联系管理员。\n\n测试账号：admin\n测试密码：123456",
-                    "提示",
-                    JOptionPane.INFORMATION_MESSAGE);
-        });
+        btn.addActionListener(e -> handleRegister());
 
-        // 鼠标悬停时变亮
         btn.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
                 btn.setForeground(ACCENT);
@@ -226,7 +225,6 @@ public class LoginFrame extends JFrame {
         checkBox.setFocusPainted(false);
         checkBox.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // 勾选时显示密码，取消时隐藏
         checkBox.addActionListener(e -> {
             if (checkBox.isSelected()) {
                 passwordField.setEchoChar((char) 0);
@@ -239,23 +237,43 @@ public class LoginFrame extends JFrame {
     }
 
     /**
-     * 处理登录逻辑：验证用户名密码
+     * 处理登录逻辑：通过数据库验证用户名密码
      */
     private void handleLogin() {
         String username = usernameField.getText().trim();
         String password = new String(passwordField.getPassword());
 
-        // 假账号验证
-        if ("admin".equals(username) && "123456".equals(password)) {
-            // 登录成功，打开主窗口，关闭登录窗口
-            SwingUtilities.invokeLater(() -> new MainFrame());
+        try {
+            User user = userService.login(username, password);
             dispose();
-        } else {
-            // 登录失败，弹出错误提示
-            JOptionPane.showMessageDialog(this,
-                    "用户名或密码错误，请重新输入。",
-                    "登录失败",
-                    JOptionPane.ERROR_MESSAGE);
+            new MainFrame(user);
+        } catch (RuntimeException e) {
+            SwingUtil.showErrorDialog(this, e.getMessage());
+        }
+    }
+
+    /**
+     * 处理注册逻辑：通过数据库创建新用户
+     */
+    private void handleRegister() {
+        String username = usernameField.getText().trim();
+        String password = new String(passwordField.getPassword());
+
+        if (username.isEmpty() || password.isEmpty()) {
+            SwingUtil.showErrorDialog(this, "用户名和密码不能为空");
+            return;
+        }
+
+        User user = new User();
+        user.setUsername(username);
+        user.setPassword(password);
+
+        try {
+            userService.register(user);
+            SwingUtil.showInfoDialog(this, "注册成功，请登录");
+            passwordField.setText("");
+        } catch (RuntimeException e) {
+            SwingUtil.showErrorDialog(this, e.getMessage());
         }
     }
 }

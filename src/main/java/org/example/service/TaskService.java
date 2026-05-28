@@ -8,10 +8,12 @@ import java.util.List;
  * 任务服务接口，定义任务相关的业务操作规范。
  */
 public interface TaskService {
+
     /**
      * 添加任务
      *
      * @param task 学习任务对象
+     * @throws RuntimeException 校验失败时抛出
      */
     void addTask(Task task);
 
@@ -19,6 +21,7 @@ public interface TaskService {
      * 删除任务
      *
      * @param id 任务ID
+     * @throws RuntimeException 校验失败时抛出
      */
     void deleteTask(int id);
 
@@ -26,13 +29,15 @@ public interface TaskService {
      * 修改任务
      *
      * @param task 学习任务对象
+     * @throws RuntimeException 校验失败时抛出
      */
     void updateTask(Task task);
 
     /**
-     * 获取所有任务
+     * 获取指定用户的所有任务
      *
-     * @return 任务列表
+     * @param userId 用户ID
+     * @return 该用户的任务列表
      */
-    List<Task> getAllTasks();
+    List<Task> getAllTasks(int userId);
 }

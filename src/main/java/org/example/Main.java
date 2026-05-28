@@ -1,6 +1,7 @@
 package org.example;
 
 import org.example.ui.frame.LoginFrame;
+import org.example.util.DBUtil;
 
 import javax.swing.*;
 
@@ -9,6 +10,7 @@ import javax.swing.*;
  */
 public class Main {
     public static void main(String[] args) {
+        DBUtil.initDatabase();
         SwingUtilities.invokeLater(LoginFrame::new);
     }
 }
